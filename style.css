@@ -91,3 +91,29 @@ button {
 .success { background-color: #d4edda; color: #155724; }
 .warning { background-color: #fff3cd; color: #856404; }
 .error { background-color: #f8d7da; color: #721c24; }
+
+/* --- NEU: Styling für die Live-Ausgabe --- */
+#resultContainer {
+    margin-top: 20px;
+    text-align: left;
+}
+
+#resultContainer label {
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 5px;
+}
+
+#jsonOutput {
+    background-color: #1e1e1e; /* Dunkler Hintergrund */
+    color: #d4d4d4; /* Helle Schrift (VS Code Style) */
+    padding: 15px;
+    border-radius: 5px;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 12px;
+    max-height: 350px; /* Box wird nicht endlos lang */
+    overflow-y: auto;  /* Scrollbalken aktivieren */
+    white-space: pre-wrap; /* Sorgt dafür, dass die Formatierung erhalten bleibt */
+    word-wrap: break-word;
+    border: 1px solid #333;
+}
