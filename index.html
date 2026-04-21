@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FP-Collector | Bachelorarbeit</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="fp.js"></script></head>
+<body>
+
+    <div class="container">
+        <h1>Fingerprint Datenerhebung</h1>
+        <p class="subtitle">Lokales Tool zur Erfassung von Browser-Attributen</p>
+        
+        <div class="input-group">   
+            <label for="userId">Benutzer-ID / Szenario:</label>
+            <input type="text" id="userId" placeholder="z.B. Test_01_Firefox_OhneVPN">
+        </div>
+        
+        <button id="startBtn" class="btn-primary">Fingerprint erfassen</button>
+        
+        <div id="statusBox" class="status-box">Bereit für den Test.</div>
+        
+        <button id="downloadBtn" class="btn-success" style="display: none;">JSON herunterladen</button>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
