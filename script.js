@@ -156,7 +156,9 @@ async function gatherAllData(runType) {
             "10_viewport_width": window.innerWidth,
             "10_viewport_height": window.innerHeight,
             "11_battery_status": await getBattery(),
-            "12_page_zoom_level": window.devicePixelRatio || 1
+            "12_page_zoom_level": window.devicePixelRatio || 1,
+            "13_timezone": Intl.DateTimeFormat().resolvedOptions().timeZone,
+            "14_timezone_offset_mins": new Date().getTimezoneOffset()
         }
     };
     return baseData;
@@ -173,7 +175,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     
     // JSON in exakt der richtigen Reihenfolge zusammenbauen!
     currentData = {
-        metadata: baseData.metadata,
+        metadata: baseData.metadata,    
         static_attributes_S: baseData.static_attributes_S,
         dynamic_attributes_D: {
             "13_webgl_rendering_speed_ms": getWebGLSpeed(),
