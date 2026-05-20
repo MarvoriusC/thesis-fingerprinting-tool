@@ -25,21 +25,23 @@
         .success { background: #2ecc71; color: #fff; }
         pre { background: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 6px; overflow-x: auto; font-size: 13px; max-height: 400px; }
     </style>
-    <!-- FingerprintJS für die Font-Erkennung (Baseline) laden -->
+    <!-- FingerprintJS fuer die Font-Erkennung (CDN bewusst beibehalten:
+         ein blockierter Abruf -> "fpjs_not_loaded" ist ein Befund zum
+         Drittanbieter-Blocking, z. B. uBlock Origin in Helium/Mullvad). -->
     <script src="https://openfpcdn.io/fingerprintjs/v3/iife.min.js"></script>
 </head>
 <body>
 
 <div class="container">
     <h1>Fingerprinting Data Collector</h1>
-    <p class="subtitle">Erhebung von S, D und V Attributen für Adaptive Authentication (Thesis MFA).</p>
+    <p class="subtitle">Erhebung von Browser-Fingerprinting-Attributen zur Stabilitaets- und Signifikanzanalyse.</p>
 
     <!-- METADATEN DROPDOWNS -->
     <div class="metadata-controls">
         <h3>Test-Setup konfigurieren</h3>
-        
+
         <div>
-            <label>Gerät:</label>
+            <label>Geraet:</label>
             <select id="metaDevice">
                 <option value="Laptop_1">Haupt-Laptop</option>
                 <option value="Desktop_PC">Desktop PC</option>
@@ -50,16 +52,16 @@
         <div>
             <label>Session-Nummer:</label>
             <select id="metaSession">
-                <option value="S1">Session 1 (Start)</option>
-                <option value="S2">Session 2 (Restart)</option>
-                <option value="S3">Session 3 (Restart)</option>
-                <option value="S4">Session 4 (PC Neustart)</option>
-                <option value="S5">Session 5 (PC Neustart)</option>
+                <option value="S1">Session 1 (Erststart &ndash; In-Session-Szenarien)</option>
+                <option value="S2">Session 2 (nach Browser-Neustart)</option>
+                <option value="S3">Session 3 (nach Browser-Neustart)</option>
+                <option value="S4">Session 4 (nach PC-Neustart)</option>
+                <option value="S5">Session 5 (nach 2. PC-Neustart &ndash; Baseline-Wdh.)</option>
             </select>
         </div>
-        
+
         <div class="full-width">
-            <label>Browser & Modus:</label>
+            <label>Browser &amp; Modus:</label>
             <select id="metaBrowser">
                 <option value="Chrome_Normal">Chrome (Normal)</option>
                 <option value="Edge_Normal">Edge (Normal)</option>
@@ -73,26 +75,26 @@
         </div>
 
         <div class="full-width">
-            <label>Aktueller Störfaktor:</label>
+            <label>Aktueller Stoerfaktor:</label>
             <select id="metaScenario">
-                <option value="00_Baseline">00 - Baseline (Heimnetz / USB Maus / Ladekabel / LG Kühl Normal )</option>
-                <option value="01_Netzwerk_VPN">01 - Proton VPN</option>
-                <option value="02_Batteriesparmodus">02 - Ladekabel abschließen</option>
-                <option value="03_Screen_Resize">03 - Fenstergröße manipuliert</option>
-                <option value="04_Zoom_Level">04 - Zoom manipuliert</option>
-                <option value="05_MOV_CPU">04 - .mov Video abspielen (CPU TEST)</option>
-                <option value="06_Hardware_Accel_Off">06 - Hardwarebeschleunigung im Browser deaktiviert</option>
-                <option value="07_Win_ClearType">07 - Windows ClearType deaktiviert</option>
+                <option value="00_Baseline">00 - Baseline (Heimnetz / USB-Maus / Ladekabel / Luefter normal)</option>
+                <option value="01_VPN">01 - Proton VPN aktiv</option>
+                <option value="02_Battery_Unplugged">02 - Ladekabel abgezogen</option>
+                <option value="03_Window_Resize">03 - Fenstergroesse veraendert</option>
+                <option value="04_Browser_Zoom">04 - Browser-Zoom veraendert</option>
+                <option value="05_CPU_Load_Video">05 - .mov-Video laeuft (CPU-Last)</option>
+                <option value="06_Hardware_Accel_Off">06 - Hardwarebeschleunigung deaktiviert</option>
+                <option value="07_Display_Scaling">07 - Windows-Anzeigeskalierung (DPI) veraendert</option>
             </select>
         </div>
     </div>
 
     <!-- BUTTONS -->
     <div class="button-group">
-        <button id="startBtn" class="btn-single">1x Run (Nur S & V checken)</button>
-        <button id="benchmarkBtn" class="btn-benchmark">100x Run (Für D-Auswertung)</button>
+        <button id="startBtn" class="btn-single">1&times; Run (Einzel-Momentaufnahme)</button>
+        <button id="benchmarkBtn" class="btn-benchmark">100&times; Run (Benchmark-Verteilung)</button>
     </div>
-    
+
     <div id="statusBox" class="status-box ready">Warte auf Eingabe...</div>
 
     <!-- OUTPUT -->

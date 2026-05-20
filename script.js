@@ -20,7 +20,13 @@ function calculateStats(arr) {
     };
 }
 
-// --- STATISCHE ATTRIBUTE (S) ---
+// =====================================================================
+//  MESSFUNKTIONEN  -  UNVERAENDERT (validierte, belegbare Verfahren).
+//  Bitte NICHT anfassen: jede Aenderung hier macht die Hashes
+//  inkompatibel zu bereits erhobenen Daten.
+// =====================================================================
+
+// Canvas: angelehnt an Mowery & Shacham (2012) / fingerprintjs2
 async function getCanvasFingerprintHash() {
     try {
         const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
@@ -34,12 +40,13 @@ async function getCanvasFingerprintHash() {
     } catch (e) { return "blocked"; }
 }
 
+// Audio: OfflineAudioContext + DynamicsCompressor (Englehardt & Narayanan 2016)
 async function getAudioFingerprintHash() {
     try {
         const context = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 44100, 44100);
         const oscillator = context.createOscillator(); oscillator.type = "triangle"; oscillator.frequency.setValueAtTime(10000, context.currentTime);
-        const compressor = context.createDynamicsCompressor(); compressor.threshold.setValueAtTime(-50, context.currentTime); 
-        compressor.knee.setValueAtTime(40, context.currentTime); compressor.ratio.setValueAtTime(12, context.currentTime); 
+        const compressor = context.createDynamicsCompressor(); compressor.threshold.setValueAtTime(-50, context.currentTime);
+        compressor.knee.setValueAtTime(40, context.currentTime); compressor.ratio.setValueAtTime(12, context.currentTime);
         compressor.attack.setValueAtTime(0, context.currentTime); compressor.release.setValueAtTime(0.25, context.currentTime);
         oscillator.connect(compressor); compressor.connect(context.destination); oscillator.start(0);
         const renderedBuffer = await context.startRendering(); const data = renderedBuffer.getChannelData(0);
@@ -48,6 +55,7 @@ async function getAudioFingerprintHash() {
     } catch (e) { return "blocked"; }
 }
 
+// WebGL Vendor/Renderer/Extensions (Cao et al. 2017; Laperdrix et al. 2016)
 async function getWebGLStatic() {
     try {
         const canvas = document.createElement('canvas'); const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
@@ -61,6 +69,8 @@ async function getWebGLStatic() {
     } catch (e) { return { vendor: "error", renderer: "error", extensions_hash: "error" }; }
 }
 
+// Fonts via FingerprintJS v3 (CDN). "fpjs_not_loaded" = Drittanbieter-Skript
+// wurde blockiert (z. B. uBlock Origin in Helium/Mullvad) -> selbst ein Befund.
 async function getFontsHash() {
     try {
         if (!window.FingerprintJS) return "fpjs_not_loaded";
@@ -73,11 +83,12 @@ async function getFontsHash() {
 async function getStorageQuota() {
     try {
         if (!navigator.storage || !navigator.storage.estimate) return "N/A";
-        const est = await navigator.storage.estimate(); return est.quota || 0; 
+        const est = await navigator.storage.estimate(); return est.quota || 0;
     } catch (e) { return 0; }
 }
 
-// --- DYNAMISCHE ATTRIBUTE (D) ---
+// --- BENCHMARKS (deterministisch begrenzte Verteilungen) ---
+// JS- & Math-Benchmark: Mowery, Bogenreif, Yilek & Shacham (2011)
 function getJsBenchmark() {
     try {
         const t0 = performance.now(); let sum = 0; for (let i = 0; i < 1000000; i++) sum += Math.sqrt(i);
@@ -88,7 +99,7 @@ function getJsBenchmark() {
 function getMathBenchmark() {
     try {
         const t0 = performance.now();
-        let val = 0; 
+        let val = 0;
         for (let i = 0; i < 500000; i++) { val += Math.sin(i) * Math.cos(i) + Math.tan(i); }
         return parseFloat((performance.now() - t0).toFixed(2));
     } catch(e) { return -1; }
@@ -110,7 +121,6 @@ function getWebGLSpeed() {
     } catch(e) { return -1; }
 }
 
-// --- VOLATILE ATTRIBUTE (V) ---
 async function getBattery() {
     if ('getBattery' in navigator) {
         try {
@@ -120,106 +130,96 @@ async function getBattery() {
     return "api_removed";
 }
 
-// --- DATEN-AGGREGATION ---
-async function gatherAllData(runType) {
-    const device = document.getElementById('metaDevice').value;
-    const session = document.getElementById('metaSession').value;
-    const browser = document.getElementById('metaBrowser').value;
-    const scenario = document.getElementById('metaScenario').value;
+// =====================================================================
+//  AGGREGATION  -  neutrale Struktur. Keine S/D/V-Einteilung mehr in der
+//  Rohdatei: die Klassifikation ist ein Auswertungs-ERGEBNIS und wird
+//  spaeter (Jupyter/Python) aus der Varianz ueber die Sessions berechnet.
+//  Gruppierung erfolgt nur nach Mess-STRUKTUR:
+//    - attributes : Einzel-Momentaufnahme (einmal pro Run gemessen)
+//    - benchmarks : 100x-Verteilung (mean / std_dev / Rohwerte)
+// =====================================================================
 
-    const webgl = await getWebGLStatic();
-    
-    let baseData = {
-        metadata: { 
-            device_id: device,
-            session_nr: session,
-            browser_mode: browser,
-            scenario: scenario,
-            test_type: runType,
-            timestamp: new Date().toISOString(),
-            user_agent: navigator.userAgent
-        },
-        static_attributes_S: {
-            "1_webgl_vendor": webgl.vendor,
-            "1_webgl_renderer": webgl.renderer,
-            "1_webgl_ext_hash": webgl.extensions_hash,
-            "2_os_platform": navigator.platform || "unknown",
-            "3_hardware_concurrency": navigator.hardwareConcurrency || "blocked",
-            "4_audio_hash": await getAudioFingerprintHash(),
-            "5_canvas_hash": await getCanvasFingerprintHash(),
-            "6_fonts_hash": await getFontsHash(),
-            "7_max_touch_points": navigator.maxTouchPoints || 0,
-            "8_color_depth": window.screen ? window.screen.colorDepth : "blocked",
-            "9_storage_quota_bytes": await getStorageQuota()
-        },
-        volatile_attributes_V: {
-            "10_viewport_width": window.innerWidth,
-            "10_viewport_height": window.innerHeight,
-            "11_battery_status": await getBattery(),
-            "12_page_zoom_level": window.devicePixelRatio || 1,
-            "13_timezone": Intl.DateTimeFormat().resolvedOptions().timeZone,
-            "14_timezone_offset_mins": new Date().getTimezoneOffset()
-        }
+function buildMetadata(runType) {
+    return {
+        device_id: document.getElementById('metaDevice').value,
+        session_nr: document.getElementById('metaSession').value,
+        browser_mode: document.getElementById('metaBrowser').value,
+        scenario: document.getElementById('metaScenario').value,
+        test_type: runType,
+        timestamp: new Date().toISOString(),
+        user_agent: navigator.userAgent
     };
-    return baseData;
+}
+
+async function gatherSnapshotAttributes() {
+    const webgl = await getWebGLStatic();
+    return {
+        // Hardware / Plattform
+        webgl_vendor: webgl.vendor,
+        webgl_renderer: webgl.renderer,
+        webgl_extensions_hash: webgl.extensions_hash,
+        os_platform: navigator.platform || "unknown",
+        hardware_concurrency: navigator.hardwareConcurrency || "blocked",
+        max_touch_points: navigator.maxTouchPoints || 0,
+        color_depth: window.screen ? window.screen.colorDepth : "blocked",
+        storage_quota_bytes: await getStorageQuota(),
+        // Hash-Attribute
+        audio_hash: await getAudioFingerprintHash(),
+        canvas_hash: await getCanvasFingerprintHash(),
+        fonts_hash: await getFontsHash(),
+        // Zustands-/Konfigurationsabhaengig
+        viewport_width: window.innerWidth,
+        viewport_height: window.innerHeight,
+        battery_status: await getBattery(),
+        device_pixel_ratio: window.devicePixelRatio || 1,   // frueher: page_zoom_level
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        timezone_offset_mins: new Date().getTimezoneOffset()
+    };
 }
 
 // --- BUTTON LOGIK ---
 
 document.getElementById('startBtn').addEventListener('click', async () => {
     const statusBox = document.getElementById('statusBox');
-    statusBox.innerText = "Führe 1x Run aus... (Bitte warten)"; statusBox.className = "status-box warning";
-    
-    // Basis-Daten holen (S und V)
-    let baseData = await gatherAllData("single_run");
-    
-    // JSON in exakt der richtigen Reihenfolge zusammenbauen!
-    currentData = {
-        metadata: baseData.metadata,    
-        static_attributes_S: baseData.static_attributes_S,
-        dynamic_attributes_D: {
-            "13_webgl_rendering_speed_ms": getWebGLSpeed(),
-            "14_js_execution_benchmark_ms": getJsBenchmark(),
-            "15_wasm_compile_benchmark_ms": await getWasmBenchmark(),
-            "16_math_floating_point_ms": getMathBenchmark() // <-- HIER EINGEFÜGT
-        },
-        volatile_attributes_V: baseData.volatile_attributes_V
-    };
+    statusBox.innerText = "Fuehre Einzel-Messung aus... (Bitte warten)"; statusBox.className = "status-box warning";
+
+    const metadata = buildMetadata("single_run");
+    const attributes = await gatherSnapshotAttributes();
+
+    currentData = { metadata, attributes };
 
     finishRun(statusBox);
 });
 
 document.getElementById('benchmarkBtn').addEventListener('click', async () => {
     const statusBox = document.getElementById('statusBox');
-    statusBox.innerText = "Führe 100 Benchmarks durch... (Browser nicht minimieren!)"; statusBox.className = "status-box warning";
+    statusBox.innerText = "Fuehre 100 Benchmarks durch... (Browser nicht minimieren!)"; statusBox.className = "status-box warning";
 
-    let baseData = await gatherAllData("100x_benchmark");
-    
-    // Neues Array für die Mathe-Daten hinzugefügt
-    let webglData = [], jsData = [], wasmData = [], mathData = []; 
-    
+    const metadata = buildMetadata("100x_benchmark");
+    const attributes = await gatherSnapshotAttributes();   // einmalige Momentaufnahme
+
+    let webglData = [], jsData = [], wasmData = [], mathData = [];
     for (let i = 0; i < 100; i++) {
         webglData.push(getWebGLSpeed());
         jsData.push(getJsBenchmark());
         wasmData.push(await getWasmBenchmark());
-        mathData.push(getMathBenchmark()); // <-- HIER WIRD 100x GEZÄHLT
-        
-        // UI Thread atmen lassen
-        if (i % 10 === 0) await new Promise(r => setTimeout(r, 5)); 
+        mathData.push(getMathBenchmark());
+        if (i % 10 === 0) await new Promise(r => setTimeout(r, 5)); // UI-Thread atmen lassen
     }
 
-    // JSON in exakt der richtigen Reihenfolge zusammenbauen!
-    currentData = {
-        metadata: baseData.metadata,
-        static_attributes_S: baseData.static_attributes_S,
-        dynamic_attributes_D: {
-            "13_webgl_rendering_speed_ms": { std_dev: calculateStats(webglData).std_dev, mean: calculateStats(webglData).mean, raw_data_100_runs: webglData },
-            "14_js_execution_benchmark_ms": { std_dev: calculateStats(jsData).std_dev, mean: calculateStats(jsData).mean, raw_data_100_runs: jsData },
-            "15_wasm_compile_benchmark_ms": { std_dev: calculateStats(wasmData).std_dev, mean: calculateStats(wasmData).mean, raw_data_100_runs: wasmData },
-            "16_math_floating_point_ms": { std_dev: calculateStats(mathData).std_dev, mean: calculateStats(mathData).mean, raw_data_100_runs: mathData } // <-- HIER IM JSON EINGEFÜGT
-        },
-        volatile_attributes_V: baseData.volatile_attributes_V
+    const wStats = calculateStats(webglData);
+    const jStats = calculateStats(jsData);
+    const waStats = calculateStats(wasmData);
+    const mStats = calculateStats(mathData);
+
+    const benchmarks = {
+        webgl_rendering_speed_ms: { mean: wStats.mean,  std_dev: wStats.std_dev,  raw_data_100_runs: webglData },
+        js_execution_benchmark_ms: { mean: jStats.mean,  std_dev: jStats.std_dev,  raw_data_100_runs: jsData },
+        wasm_compile_benchmark_ms: { mean: waStats.mean, std_dev: waStats.std_dev, raw_data_100_runs: wasmData },
+        math_floating_point_ms:    { mean: mStats.mean,  std_dev: mStats.std_dev,  raw_data_100_runs: mathData }
     };
+
+    currentData = { metadata, attributes, benchmarks };
 
     finishRun(statusBox);
 });
@@ -233,13 +233,9 @@ function finishRun(statusBox) {
 }
 
 document.getElementById('downloadBtn').addEventListener('click', () => {
-    const device = document.getElementById('metaDevice').value;
-    const session = document.getElementById('metaSession').value;
-    const browser = document.getElementById('metaBrowser').value;
-    const scenario = document.getElementById('metaScenario').value;
-    
+    const m = currentData.metadata;
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(currentData, null, 2));
     const link = document.createElement('a'); link.href = dataStr;
-    link.download = `Thesis_${device}_${browser}_${scenario}_${session}.json`; 
+    link.download = `Thesis_${m.device_id}_${m.browser_mode}_${m.scenario}_${m.session_nr}.json`;
     link.click();
 });
