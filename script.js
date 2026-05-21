@@ -105,48 +105,6 @@ function getMathBenchmark() {
     } catch(e) { return -1; }
 }
 
-// Wasm-Setter-Timing — Quelle: Guri & Fibert (2025), "Browser Fingerprinting
-// Using WebAssembly", arXiv:2506.00719. Statt der Compile-Zeit eines LEEREN
-// Moduls (rauschdominiert, kein echtes Hardware-Signal) wird hier die
-// AUSFÜHRUNGSZEIT einer echten exportierten Wasm-Funktion gemessen, die in einer
-// Schleife als Property-Setter aufgerufen wird (vgl. deren "wasm-scripted-setter").
-// Chromium- und Gecko-Engines optimieren diese Aufrufe unterschiedlich → der Wert
-// ist hardware-/engine-abhängig und deterministisch begrenzt → dynamisches Attribut (D).
-
-// Minimales Wasm-Modul (in Node validiert): exportiert setOne(i32), setzt eine globale Variable.
-const WASM_SETTER_BYTES = new Uint8Array([
-    0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,             // magic + version
-    0x01, 0x05, 0x01, 0x60, 0x01, 0x7f, 0x00,                   // type:   (i32) -> ()
-    0x03, 0x02, 0x01, 0x00,                                     // func:   1 Funktion, Typ 0
-    0x06, 0x06, 0x01, 0x7f, 0x01, 0x41, 0x00, 0x0b,             // global: mutable i32 = 0
-    0x07, 0x0a, 0x01, 0x06, 0x73, 0x65, 0x74, 0x4f, 0x6e, 0x65, 0x00, 0x00, // export "setOne"
-    0x0a, 0x08, 0x01, 0x06, 0x00, 0x20, 0x00, 0x24, 0x00, 0x0b  // code:   global.set(local.get 0)
-]);
-
-let _wasmSetter = null; // gecacht: einmal instanziieren, nicht pro Messung
-function getWasmSetterInstance() {
-    if (_wasmSetter === null) {
-        try {
-            const module = new WebAssembly.Module(WASM_SETTER_BYTES);
-            const instance = new WebAssembly.Instance(module, {});
-            _wasmSetter = instance.exports.setOne;
-        } catch (e) { _wasmSetter = false; } // false = Wasm blockiert/nicht verfügbar
-    }
-    return _wasmSetter;
-}
-
-function getWasmSetterBenchmark() {
-    try {
-        const setOne = getWasmSetterInstance();
-        if (!setOne) return -1;
-        const obj = {};
-        Object.defineProperty(obj, 'x', { set: setOne, configurable: true });
-        const t0 = performance.now();
-        for (let i = 0; i < 200000; i++) { obj.x = i; } // Wasm-Setter in Schleife triggern
-        return parseFloat((performance.now() - t0).toFixed(2));
-    } catch(e) { return -1; }
-}
-
 function getWebGLSpeed() {
     try {
         const canvas = document.createElement('canvas'); const gl = canvas.getContext('webgl'); if (!gl) return -1;
@@ -233,24 +191,21 @@ document.getElementById('benchmarkBtn').addEventListener('click', async () => {
     const metadata = buildMetadata("100x_benchmark");
     const attributes = await gatherSnapshotAttributes();   // einmalige Momentaufnahme
 
-    let webglData = [], jsData = [], wasmData = [], mathData = [];
+    let webglData = [], jsData = [], mathData = [];
     for (let i = 0; i < 100; i++) {
         webglData.push(getWebGLSpeed());
         jsData.push(getJsBenchmark());
-        wasmData.push(getWasmSetterBenchmark());
         mathData.push(getMathBenchmark());
         if (i % 10 === 0) await new Promise(r => setTimeout(r, 5)); // UI-Thread atmen lassen
     }
 
     const wStats = calculateStats(webglData);
     const jStats = calculateStats(jsData);
-    const waStats = calculateStats(wasmData);
     const mStats = calculateStats(mathData);
 
     const benchmarks = {
         webgl_rendering_speed_ms: { mean: wStats.mean,  std_dev: wStats.std_dev,  raw_data_100_runs: webglData },
         js_execution_benchmark_ms: { mean: jStats.mean,  std_dev: jStats.std_dev,  raw_data_100_runs: jsData },
-        wasm_setter_call_benchmark_ms: { mean: waStats.mean, std_dev: waStats.std_dev, raw_data_100_runs: wasmData },
         math_floating_point_ms:    { mean: mStats.mean,  std_dev: mStats.std_dev,  raw_data_100_runs: mathData }
     };
 
